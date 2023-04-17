@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=64.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rop_gadget_explorer"
+version = "0.0.1"
+authors = [
+  { name="Maximilian Beckmann", email="max@exploitlabs.de" },
+]
+description = "A tool to scan rp++ output for rop gadgets."
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.scripts]
+rgs = 'rop_gadget_explorer.gadget_search:app'
+
+[project.urls]
+"Homepage" = "https://github.com/maxbeckmann/rop-gadget-explorer/sampleproject"
+"Bug Tracker" = "https://github.com/maxbeckmann/rop-gadget-explorer/issues"
