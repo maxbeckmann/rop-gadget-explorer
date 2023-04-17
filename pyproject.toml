@@ -5,6 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rop_gadget_explorer"
 version = "0.0.1"
+dependencies = [
+  "typer",
+]
 authors = [
   { name="Maximilian Beckmann", email="max@exploitlabs.de" },
 ]
@@ -18,7 +21,7 @@ classifiers = [
 ]
 
 [project.scripts]
-rgs = 'rop_gadget_explorer.gadget_search:app'
+rge = 'rop_gadget_explorer.gadget_explorer:app'
 
 [project.urls]
 "Homepage" = "https://github.com/maxbeckmann/rop-gadget-explorer/sampleproject"
