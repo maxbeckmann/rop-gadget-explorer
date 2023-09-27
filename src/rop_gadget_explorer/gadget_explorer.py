@@ -77,8 +77,6 @@ def move(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirt
         family = (
             f": mov {dst}, {src} ; ret",
             f": push {src} ; pop {dst} ; ret",
-            f": xchg {src}, {dst} ; ret",
-            f": xchg {dst}, {src} ; ret",
         )
     else:
         family = (
@@ -86,6 +84,41 @@ def move(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirt
             f": push {src} ;((?!pop [^\s]).)* pop {dst} ;.* ret",
             f": xchg {src}, {dst} ;.* ret",
             f": xchg {dst}, {src} ;.* ret"
+        )
+    
+    _search_and_print(ctx, family)
+
+@app.command()
+def xchg(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirty", "-d")):
+    src = _check_register(src)
+    dst = _check_register(dst)
+    
+    clean = not dirty
+    if clean:
+        family = (
+            f": xchg {src}, {dst} ; ret",
+            f": xchg {dst}, {src} ; ret",
+        )
+    else:
+        family = (
+            f": xchg {src}, {dst} ;.* ret",
+            f": xchg {dst}, {src} ;.* ret"
+        )
+    
+    _search_and_print(ctx, family)
+
+@app.command()
+def zero(ctx: typer.Context, target, dirty: bool = typer.Option(False, "--dirty", "-d")):
+    target = _check_register(target)
+    
+    clean = not dirty
+    if clean:
+        family = (
+            f": xor ({target}), \\1 ; ret",
+        )
+    else:
+        family = (
+            f": xor ({target}), \\1 ;.* ret",
         )
     
     _search_and_print(ctx, family)
