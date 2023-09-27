@@ -3,14 +3,6 @@ from . import gadgets as g
 
 app = typer.Typer()
 
-def search_gadget_family(family, in_file):
-    for pattern in family:
-        in_file.seek(0) # ensure we read from the start
-        for line in in_file:
-            res = re.search(pattern, line)
-            if res:
-                yield line.strip()
-
 def _print_result(res):
     if res:
         print(str("\n").join(res))
