@@ -21,7 +21,7 @@ classifiers = [
 ]
 
 [project.scripts]
-rge = 'rop_gadget_explorer.gadget_explorer:app'
+rge = 'rop_gadget_explorer.cli:app'
 
 [project.urls]
 "Homepage" = "https://github.com/maxbeckmann/rop-gadget-explorer/sampleproject"

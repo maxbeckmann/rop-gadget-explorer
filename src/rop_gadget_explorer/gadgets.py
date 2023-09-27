@@ -1,15 +1,4 @@
 import re
-import typer
-
-app = typer.Typer()
-
-def search_gadget_family(family, in_file):
-    for pattern in family:
-        in_file.seek(0) # ensure we read from the start
-        for line in in_file:
-            res = re.search(pattern, line)
-            if res:
-                yield line.strip()
 
 registers = {
     "eax",
@@ -29,16 +18,16 @@ def _check_register(r32):
     else:
         assert r32 in registers
     return r32
-    
 
-def _search_and_print(ctx, family):
-    in_file = ctx.obj["file"]
-    res = list(search_gadget_family(family, in_file))
-    if res:
-        print(str("\n").join(res))
+def search_gadget_family(family, in_file):
+    for pattern in family:
+        in_file.seek(0) # ensure we read from the start
+        for line in in_file:
+            res = re.search(pattern, line)
+            if res:
+                yield line.strip()
 
-@app.command()
-def bkpt(ctx: typer.Context, dirty: bool = typer.Option(False, "--dirty", "-d")):
+def bkpt(in_file, dirty: bool):
     clean = not dirty
     if clean:
         family = (
@@ -49,10 +38,9 @@ def bkpt(ctx: typer.Context, dirty: bool = typer.Option(False, "--dirty", "-d"))
             f": int3 ; .* ret",
         )
     
-    _search_and_print(ctx, family)
+    return search_gadget_family(family, in_file)
 
-@app.command()
-def set(ctx: typer.Context, r32, dirty: bool = typer.Option(False, "--dirty", "-d")):
+def set(in_file, r32, dirty: bool):
     r32 = _check_register(r32)
     
     clean = not dirty
@@ -65,10 +53,9 @@ def set(ctx: typer.Context, r32, dirty: bool = typer.Option(False, "--dirty", "-
             f": pop {r32} ;.* ret",
         )
     
-    _search_and_print(ctx, family)
+    return search_gadget_family(family, in_file)
 
-@app.command()
-def move(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirty", "-d")):
+def move(in_file, src, dst, dirty: bool):
     src = _check_register(src)
     dst = _check_register(dst)
     
@@ -86,10 +73,9 @@ def move(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirt
             f": xchg {dst}, {src} ;.* ret"
         )
     
-    _search_and_print(ctx, family)
+    return search_gadget_family(family, in_file)
 
-@app.command()
-def xchg(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirty", "-d")):
+def xchg(in_file, src, dst, dirty: bool):
     src = _check_register(src)
     dst = _check_register(dst)
     
@@ -105,10 +91,9 @@ def xchg(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirt
             f": xchg {dst}, {src} ;.* ret"
         )
     
-    _search_and_print(ctx, family)
+    return search_gadget_family(family, in_file)
 
-@app.command()
-def zero(ctx: typer.Context, target, dirty: bool = typer.Option(False, "--dirty", "-d")):
+def zero(in_file, target, dirty: bool):
     target = _check_register(target)
     
     clean = not dirty
@@ -121,10 +106,9 @@ def zero(ctx: typer.Context, target, dirty: bool = typer.Option(False, "--dirty"
             f": xor ({target}), \\1 ;.* ret",
         )
     
-    _search_and_print(ctx, family)
+    return search_gadget_family(family, in_file)
 
-@app.command()
-def sub(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirty", "-d")):
+def sub(in_file, src, dst, dirty: bool):
     src = _check_register(src)
     dst = _check_register(dst)
     
@@ -138,10 +122,9 @@ def sub(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirty
             f": sub {dst}, {src} ;.* ret",
         )
     
-    _search_and_print(ctx, family)
+    return search_gadget_family(family, in_file)
 
-@app.command()
-def add(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirty", "-d")):
+def add(in_file, src, dst, dirty: bool):
     src = _check_register(src)
     dst = _check_register(dst)
     
@@ -155,10 +138,9 @@ def add(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirty
             f": add {dst}, {src} ;.* ret",
         )
     
-    _search_and_print(ctx, family)
+    return search_gadget_family(family, in_file)
 
-@app.command()
-def neg(ctx: typer.Context, dst, dirty: bool = typer.Option(False, "--dirty", "-d")):
+def neg(in_file, dst, dirty: bool):
     dst = _check_register(dst)
     
     clean = not dirty
@@ -171,10 +153,9 @@ def neg(ctx: typer.Context, dst, dirty: bool = typer.Option(False, "--dirty", "-
             f": neg {dst} ;.* ret",
         )
     
-    _search_and_print(ctx, family)
+    return search_gadget_family(family, in_file)
 
-@app.command()
-def inc(ctx: typer.Context, dst, dirty: bool = typer.Option(False, "--dirty", "-d")):
+def inc(in_file, dst, dirty: bool):
     dst = _check_register(dst)
     
     clean = not dirty
@@ -187,10 +168,9 @@ def inc(ctx: typer.Context, dst, dirty: bool = typer.Option(False, "--dirty", "-
             f": inc {dst} ;.* ret",
         )
     
-    _search_and_print(ctx, family)
+    return search_gadget_family(family, in_file)
 
-@app.command()
-def load(ctx: typer.Context, r32, ptr, dirty: bool = typer.Option(False, "--dirty", "-d")):
+def load(in_file, r32, ptr, dirty: bool):
     ptr = _check_register(ptr)
     r32 = _check_register(r32)
     
@@ -204,10 +184,9 @@ def load(ctx: typer.Context, r32, ptr, dirty: bool = typer.Option(False, "--dirt
             f": mov {r32},  \[{ptr}\] ;.* ret",
         )
     
-    _search_and_print(ctx, family)
+    return search_gadget_family(family, in_file)
 
-@app.command()
-def store(ctx: typer.Context, r32, ptr, offset: bool = typer.Option(False, "--offset", "-o"), dirty: bool = typer.Option(False, "--dirty", "-d")):
+def store(in_file, r32, ptr, offset: bool, dirty: bool):
     ptr = _check_register(ptr)
     r32 = _check_register(r32)
     
@@ -225,10 +204,9 @@ def store(ctx: typer.Context, r32, ptr, offset: bool = typer.Option(False, "--of
         if offset:
             family += [f": mov  \[{ptr}+[\w]*\], {r32} ;.* ret",]
     
-    _search_and_print(ctx, family)
+    return search_gadget_family(family, in_file)
 
-@app.command()
-def pushad(ctx: typer.Context, dirty: bool = typer.Option(False, "--dirty", "-d")):
+def pushad(in_file, dirty: bool):
     clean = not dirty
     if clean:
         family = (
@@ -239,10 +217,9 @@ def pushad(ctx: typer.Context, dirty: bool = typer.Option(False, "--dirty", "-d"
             ": pushad ; .* ret",
         )
     
-    _search_and_print(ctx, family)
+    return search_gadget_family(family, in_file)
 
-@app.command()
-def ret(ctx: typer.Context, dirty: bool = typer.Option(False, "--dirty", "-d")):
+def ret(in_file, dirty: bool):
     clean = not dirty
     if clean:
         family = (
@@ -253,15 +230,4 @@ def ret(ctx: typer.Context, dirty: bool = typer.Option(False, "--dirty", "-d")):
             ": ret",
         )
     
-    _search_and_print(ctx, family)
-
-@app.callback()
-def main(
-    ctx: typer.Context, 
-    gadgets: str = typer.Option("gadgets.txt", "--gadgets", "-g")
-    ):
-    ctx.ensure_object(dict)
-    ctx.obj["file"] = open(gadgets, "r")
-
-if __name__ == "__main__":
-    app()
+    return search_gadget_family(family, in_file)
