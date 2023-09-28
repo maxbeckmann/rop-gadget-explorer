@@ -32,9 +32,12 @@ def _match_patterns(patterns, s):
 class Gadget:
     def __init__(self, string: str) -> None:
         self.string = string.strip()
+        split = self.string.split(":")
+        self.address = int(split[0], base=16)
+        self.instructions = map(str.strip, (split[1].split(";"))[:-1])
     
     def __str__(self) -> str:
-        return self.string
+        return f"({hex(self.address)}) # {' ; '.join(self.instructions)}"
     
     @abstractclassmethod
     def _get_patterns(cls, allow_dirty):
