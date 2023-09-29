@@ -28,13 +28,12 @@ def _match_patterns(patterns, s):
             return res
     return None
 
-
 class Gadget:
     def __init__(self, string: str) -> None:
         self.string = string.strip()
         split = self.string.split(":")
         self.address = int(split[0], base=16)
-        self.instructions = map(str.strip, (split[1].split(";"))[:-1])
+        self.instructions = list(map(str.strip, (split[1].split(";"))[:-1]))
     
     def __str__(self) -> str:
         return f"({hex(self.address)}) # {' ; '.join(self.instructions)}"
@@ -75,7 +74,7 @@ class SingleTargetGadget(Gadget):
         return result
 
     @classmethod
-    def from_string(cls, s, target, allow_dirty=False):
+    def from_string(cls, s, target, allow_dirty=False, **kwargs):
         patterns = cls._get_patterns(allow_dirty)
         updated_patterns = cls._insert_target(patterns, target)
         match = _match_patterns(updated_patterns, s)
@@ -146,7 +145,7 @@ class LoadStoreGadget(Gadget):
 
         named_group_offset = None
         if allow_offset:
-            named_group_offset = "(?P<ost>[\+\-]0x\w+)"
+            named_group_offset = "(?P<ost>[\+\-]0x\w+)?"
         else:
             named_group_offset = ""
 
@@ -170,7 +169,8 @@ class LoadStoreGadget(Gadget):
             offset = None
             try:
                 offset_str = match.group('ost')
-                offset = int(offset_str, base=16)
+                if offset_str:
+                    offset = int(offset_str, base=16)
             except IndexError:
                 offset = 0
 
