@@ -1,5 +1,6 @@
 import typer
 from . import gadgets as g
+from .chains import *
 
 app = typer.Typer()
 
@@ -29,13 +30,13 @@ def set(ctx: typer.Context, r32, dirty: bool = typer.Option(False, "--dirty", "-
 @app.command()
 def move(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirty", "-d")):
     in_file = ctx.obj["file"]
-    res = _iterate_file(g.MoveGadget, in_file, target_a=src, target_b=dst, allow_dirty=dirty)
+    res = MoveChainFactory().build(in_file, target_a=src, target_b=dst, allow_dirty=dirty)
     _print_result(res)
 
 @app.command()
 def xchg(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirty", "-d")):
     in_file = ctx.obj["file"]
-    res = _iterate_file(g.ExchangeRegisterGadget, in_file, target_a=src, target_b=dst, allow_dirty=dirty)
+    res = ExchangeChainFactory().build(in_file, target_a=src, target_b=dst, allow_dirty=dirty)
     _print_result(res)
 
 @app.command()
@@ -53,7 +54,7 @@ def sub(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirty
 @app.command()
 def add(ctx: typer.Context, src, dst, dirty: bool = typer.Option(False, "--dirty", "-d")):
     in_file = ctx.obj["file"]
-    res = _iterate_file(g.AdditionGadget, in_file, target_a=src, target_b=dst, allow_dirty=dirty)
+    res = AdditionChainFactory.build(in_file, target_a=src, target_b=dst, allow_dirty=dirty)
     _print_result(res)
 
 @app.command()
