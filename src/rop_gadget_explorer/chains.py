@@ -2,24 +2,29 @@ from abc import abstractclassmethod
 from .gadgets import *
 
 class Chain:
-    STRATEGIES = ()
-    
-    def __init__(self, gadgets, **kwargs) -> None:
+    def __init__(self, gadgets, stack, **kwargs) -> None:
         self.gadgets = list(gadgets)
         self.attributes = kwargs
+        self.stack = stack
     
+    def _get_addresses(self):
+        for g in self.gadgets:
+            if isinstance(g, Gadget):
+                yield g.address
+            else:
+                yield from g._get_addresses()
+    
+    def _get_instructions(self):
+        for g in self.gadgets:
+            if isinstance(g, Gadget):
+                yield g.instructions
+            else:
+                yield from g._get_instructions()
+
     def __str__(self) -> str:
-        addresses = (hex(gadget.address) for gadget in self.gadgets)
-        instructions = (' ; '.join(gadget.instructions) for gadget in self.gadgets)
+        addresses = (hex(address) for address in self._get_addresses())
+        instructions = (' ; '.join(instructions) for instructions in self._get_instructions())
         return f"({', '.join(addresses)}) # {' | '.join(instructions)}"
-    
-    #@abstractclassmethod
-    #def build(cls, in_file, stack = [], **kwargs):
-    #    for strategy in cls.STRATEGIES:
-    #        stack.append(strategy)
-    #        results = strategy.build(in_file, stack, **kwargs)
-    #        yield from results
-    #        stack.pop()
 
 
 class Strategy:
@@ -29,12 +34,10 @@ class Strategy:
     
     def build(self, in_file, stack=[], **kwargs):
         stack_entry = (self, kwargs)
-        print(stack)
-        print(stack_entry)
-        print()
         if stack_entry not in stack:
             stack.append(stack_entry)
-            yield from self._build(in_file, stack, **kwargs)
+            for r in self._build(in_file, stack, **kwargs):
+                yield r
             stack.pop()
         else:
             return None
@@ -50,7 +53,8 @@ class SingletonStrategy(Strategy):
         for line in in_file:
             res = self.gadget.from_string(line, **kwargs)
             if res:
-                yield res
+                attributes = vars(res)
+                yield Chain([res], stack, **attributes)
 
 
 def _update_args(arg_spec, arguments):
@@ -64,7 +68,7 @@ def _fix_args(candidate, updated_args):
     fixed_args = updated_args.copy()
     for arg in updated_args:
         attr = arg.replace("target", "register") # monkey-patch for divergent nomenclature. TODO: Fix this by refactoring the gadgets!
-        attributes = vars(candidate)
+        attributes = candidate.attributes
         if attr in attributes:
             fixed_args[arg] = attributes[attr]
     return fixed_args
@@ -76,11 +80,12 @@ class CompositeStrategy(Strategy):
         self.construction = args
     
     def _build_step(self, in_file, stack, next_step, steps, **kwargs):
-        step_cls, args = next_step
-        step = step_cls()
+        step, args = next_step
         updated_args = _update_args(args, kwargs)
         candidates = step.build(in_file, stack, **updated_args)
         for candidate in candidates:
+            print(candidate)
+            print(stack)
             next_step = next(steps, None)
             if next_step:
                 fixed_args = _fix_args(candidate, updated_args)
@@ -89,6 +94,9 @@ class CompositeStrategy(Strategy):
                     result = nsc + [candidate]
                     yield result.copy()
             else:
+                print("reached leaf")
+                print()
+                print()
                 yield [candidate]
 
     def _build(self, in_file, stack, **kwargs):
@@ -96,7 +104,7 @@ class CompositeStrategy(Strategy):
         next_step = next(steps)
         chains = self._build_step(in_file, stack, next_step, steps, **kwargs)
         for chain in chains:
-            yield Chain(chain)
+            yield Chain(chain, stack)
 
 
 class AggregateStrategy(Strategy):
@@ -125,12 +133,8 @@ class SubtractionChainFactory(AggregateStrategy):
     def get_strategies(cls):
         return  (
             SingletonStrategy(SubtractGadget),
-            CompositeStrategy(
-                    (NegateChainFactory, {"target": "{target_a}"}),
-                    (AdditionChainFactory, {"target_a": "{target_a}", "target_b": "{target_b}"})
-            ),
+            neg_add,
         )
-
 
 class NegateChainFactory(AggregateStrategy):
     @classmethod
@@ -139,16 +143,13 @@ class NegateChainFactory(AggregateStrategy):
             SingletonStrategy(NegateRegisterGadget),
         )
 
-
 class AdditionChainFactory(AggregateStrategy):
     @classmethod
     def get_strategies(cls):
         return  (
             SingletonStrategy(AdditionGadget),
-            CompositeStrategy(
-                    (NegateChainFactory, {"target": "{target_a}"}),
-                    (SubtractionChainFactory, {"target_a": "{target_a}", "target_b": "{target_b}"})
-            ),
+            neg_sub,
+            neg_sub_neg,
         )
 
 
@@ -157,14 +158,8 @@ class MoveChainFactory(AggregateStrategy):
     def get_strategies(cls):
         return  (
             SingletonStrategy(MoveGadget),
-            CompositeStrategy(
-                    (SetZeroChainFactory, {"target": "{target_b}"}),
-                    (AdditionChainFactory, {"target_a": "{target_a}", "target_b": "{target_b}"})
-            ),
-            #CompositeStrategy(
-            #        (ExchangeChainFactory, {"target_a": "{target_a}", "target_b": "{target_b}"}),
-            #        (MoveChainFactory, {"target_a": "{target_b}", "target_b": "{target_a}"}),
-            #),
+            zero_add,
+            xchg_move,
     )
 
 
@@ -174,3 +169,36 @@ class ExchangeChainFactory(AggregateStrategy):
         return  (
             SingletonStrategy(ExchangeRegisterGadget),
         )
+
+move = MoveChainFactory()
+xchg = ExchangeChainFactory()
+sub = SubtractionChainFactory()
+add = AdditionChainFactory()
+zero = SetZeroChainFactory()
+neg = NegateChainFactory()
+
+neg_sub = CompositeStrategy(
+                    (neg, {"target": "{target_a}"}),
+                    (sub, {"target_a": "{target_a}", "target_b": "{target_b}"})
+            )
+
+neg_sub_neg = CompositeStrategy(
+                    (neg, {"target": "{target_b}"}),
+                    (sub, {"target_a": "{target_a}", "target_b": "{target}"}),
+                    (neg, {"target": "{target_b}"}),
+            )
+
+neg_add = CompositeStrategy(
+                    (neg, {"target": "{target_a}"}),
+                    (add, {"target_a": "{target_a}", "target_b": "{target_b}"})
+            )
+
+zero_add = CompositeStrategy(
+                    (zero, {"target": "{target_b}"}),
+                    (add, {"target_a": "{target_a}", "target_b": "{target_b}"})
+            )
+
+xchg_move = CompositeStrategy(
+                    (xchg, {"target_a": "{target_a}", "target_b": "{target_b}"}),
+                    (move, {"target_a": "{target_b}", "target_b": "{target_a}"}),
+            )

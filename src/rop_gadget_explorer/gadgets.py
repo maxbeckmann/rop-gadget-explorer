@@ -43,7 +43,7 @@ class Gadget:
         raise NotImplementedError()
 
     @classmethod
-    def from_string(cls, s, allow_dirty=False):
+    def from_string(cls, s, allow_dirty=False, **kwargs):
         patterns = cls._get_patterns(allow_dirty)
         match = _match_patterns(patterns, s)
         return cls._from_match(s, match)
@@ -110,7 +110,7 @@ class TwoTargetGadget(Gadget):
         return result
 
     @classmethod
-    def from_string(cls, s, target_a, target_b, allow_dirty=False):
+    def from_string(cls, s, target_a, target_b, allow_dirty=False, **kwargs):
         patterns = cls._get_patterns(allow_dirty)
         updated_patterns = cls._insert_targets(patterns, target_a, target_b)
         match = _match_patterns(updated_patterns, s)
@@ -155,7 +155,7 @@ class LoadStoreGadget(Gadget):
         return result
 
     @classmethod
-    def from_string(cls, s, target_a, target_b, allow_offset=False, allow_dirty=False):
+    def from_string(cls, s, target_a, target_b, allow_offset=False, allow_dirty=False, **kwargs):
         patterns = cls._get_patterns(allow_dirty)
         updated_patterns = cls._insert_targets_and_offset(patterns, target_a, target_b, allow_offset)
         match = _match_patterns(updated_patterns, s)

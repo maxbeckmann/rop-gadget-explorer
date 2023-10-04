@@ -8,6 +8,16 @@ def _print_result(res):
     if res:
         print(str("\n").join(map(str, res)))
 
+def _debug_print_result(res):
+    stack = []
+    chain = next(res, None)
+    while(chain):
+        print(chain.stack)
+        print(chain)
+        print()
+        chain = next(res, None)
+
+
 def _iterate_file(family: g.Gadget, in_file, **kwargs):
     in_file.seek(0) # ensure we read from the start
     for line in in_file:
