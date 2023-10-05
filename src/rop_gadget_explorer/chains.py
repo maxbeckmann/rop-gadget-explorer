@@ -83,23 +83,30 @@ class CompositeStrategy(Strategy):
         step, args = next_step
         updated_args = _update_args(args, kwargs)
         candidates = step.build(in_file, stack, **updated_args)
+        
         next_step = next(steps, None)
-        for candidate in candidates:
-            fixed_args = _fix_args(candidate, updated_args)
-            if next_step:
+        if not next_step:
+            for candidate in candidates:
+                fixed_args = _fix_args(candidate, updated_args)
+                result = [candidate]
+                yield result, fixed_args
+        else:
+            for candidate in candidates:
+                fixed_args = _fix_args(candidate, updated_args)
                 next_step_candiates = self._build_step(in_file, stack, next_step, steps, **fixed_args)
-                for nsc in next_step_candiates:
+                for nsc, nsc_args in next_step_candiates:
                     result = nsc + [candidate]
-                    yield result.copy()
-            else:
-                yield [candidate]
+                    yield result, nsc_args
 
     def _build(self, in_file, stack, **kwargs):
         steps = reversed(self.construction)
         next_step = next(steps)
         chains = self._build_step(in_file, stack, next_step, steps, **kwargs)
-        for chain in chains:
-            yield Chain(chain, stack)
+        for chain, args in chains:
+            result = Chain(chain, stack, **args)
+            print()
+            print(args)
+            yield result
 
 
 class AggregateStrategy(Strategy):
