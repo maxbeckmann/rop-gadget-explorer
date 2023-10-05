@@ -67,10 +67,9 @@ def _update_args(arg_spec, arguments):
 def _fix_args(candidate, updated_args):
     fixed_args = updated_args.copy()
     for arg in updated_args:
-        attr = arg.replace("target", "register") # monkey-patch for divergent nomenclature. TODO: Fix this by refactoring the gadgets!
         attributes = candidate.attributes
-        if attr in attributes:
-            fixed_args[arg] = attributes[attr]
+        if arg in attributes:
+            fixed_args[arg] = attributes[arg]
     return fixed_args
 
 
@@ -104,8 +103,6 @@ class CompositeStrategy(Strategy):
         chains = self._build_step(in_file, stack, next_step, steps, **kwargs)
         for chain, args in chains:
             result = Chain(chain, stack, **args)
-            print()
-            print(args)
             yield result
 
 
@@ -180,27 +177,27 @@ zero = SetZeroChainFactory()
 neg = NegateChainFactory()
 
 neg_sub = CompositeStrategy(
-                    (neg, {"target": "{target_a}"}),
-                    (sub, {"target_a": "{target_a}", "target_b": "{target_b}"})
+                    (neg, {"register": "{register_a}"}),
+                    (sub, {"register_a": "{register_a}", "register_b": "{register_b}"})
             )
 
 neg_sub_neg = CompositeStrategy(
-                    (neg, {"target": "{target_b}"}),
-                    (sub, {"target_a": "{target_a}", "target_b": "{target}"}),
-                    (neg, {"target": "{target_b}"}),
+                    (neg, {"register": "{register_b}"}),
+                    (sub, {"register_a": "{register_a}", "register_b": "{register}"}),
+                    (neg, {"register": "{register_b}"}),
             )
 
 neg_add = CompositeStrategy(
-                    (neg, {"target": "{target_a}"}),
-                    (add, {"target_a": "{target_a}", "target_b": "{target_b}"})
+                    (neg, {"register": "{register_a}"}),
+                    (add, {"register_a": "{register_a}", "register_b": "{register_b}"})
             )
 
 zero_add = CompositeStrategy(
-                    (zero, {"target": "{target_b}"}),
-                    (add, {"target_a": "{target_a}", "target_b": "{target_b}"})
+                    (zero, {"register": "{register_b}"}),
+                    (add, {"register_a": "{register_a}", "register_b": "{register_b}"})
             )
 
 xchg_move = CompositeStrategy(
-                    (xchg, {"target_a": "{target_a}", "target_b": "{target_b}"}),
-                    (move, {"target_a": "{target_b}", "target_b": "{target_a}"}),
+                    (xchg, {"register_a": "{register_a}", "register_b": "{register_b}"}),
+                    (move, {"register_a": "{register_b}", "register_b": "{register_a}"}),
             )

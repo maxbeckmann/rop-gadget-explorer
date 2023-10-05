@@ -58,25 +58,25 @@ class Gadget:
         return result
 
 
-class SingleTargetGadget(Gadget):
+class SingleRegisterGadget(Gadget):
     def __init__(self, string, register) -> None:
         super().__init__(string)
         self.register = register
 
     @classmethod
-    def _insert_target(cls, patterns, target):
+    def _insert_register(cls, patterns, register):
         result = []
-        target = _translate_register(target)
-        named_group_target = f"(?P<target>{target})"
+        register = _translate_register(register)
+        named_group_register = f"(?P<register>{register})"
         for pattern in patterns:
-            updated_pattern = pattern.format(target=named_group_target)
+            updated_pattern = pattern.format(register=named_group_register)
             result.append(updated_pattern)
         return result
 
     @classmethod
-    def from_string(cls, s, target, allow_dirty=False, **kwargs):
+    def from_string(cls, s, register, allow_dirty=False, **kwargs):
         patterns = cls._get_patterns(allow_dirty)
-        updated_patterns = cls._insert_target(patterns, target)
+        updated_patterns = cls._insert_register(patterns, register)
         match = _match_patterns(updated_patterns, s)
         return cls._from_match(s, match)
 
@@ -86,33 +86,33 @@ class SingleTargetGadget(Gadget):
         if match:
             result = cls(
                 s, 
-                match.group("target"),
+                match.group("register"),
             )
         return result
 
 
-class TwoTargetGadget(Gadget):
+class TwoRegisterGadget(Gadget):
     def __init__(self, string, register_a, register_b) -> None:
         super().__init__(string)
         self.register_a = register_a
         self.register_b = register_b
     
     @classmethod
-    def _insert_targets(cls, patterns, target_a, target_b):
+    def _insert_registers(cls, patterns, register_a, register_b):
         result = []
-        target_a = _translate_register(target_a)
-        target_b = _translate_register(target_b)
-        named_group_target_a = f"(?P<src>{target_a})"
-        named_group_target_b = f"(?P<dst>{target_b})"
+        register_a = _translate_register(register_a)
+        register_b = _translate_register(register_b)
+        named_group_register_a = f"(?P<src>{register_a})"
+        named_group_register_b = f"(?P<dst>{register_b})"
         for pattern in patterns:
-            updated_pattern = pattern.format(src=named_group_target_a, dst=named_group_target_b)
+            updated_pattern = pattern.format(src=named_group_register_a, dst=named_group_register_b)
             result.append(updated_pattern)
         return result
 
     @classmethod
-    def from_string(cls, s, target_a, target_b, allow_dirty=False, **kwargs):
+    def from_string(cls, s, register_a, register_b, allow_dirty=False, **kwargs):
         patterns = cls._get_patterns(allow_dirty)
-        updated_patterns = cls._insert_targets(patterns, target_a, target_b)
+        updated_patterns = cls._insert_registers(patterns, register_a, register_b)
         match = _match_patterns(updated_patterns, s)
         return cls._from_match(s, match)
 
@@ -136,12 +136,12 @@ class LoadStoreGadget(Gadget):
         self.offset = offset
     
     @classmethod
-    def _insert_targets_and_offset(cls, patterns, target_a, target_b, allow_offset: bool):
+    def _insert_registers_and_offset(cls, patterns, register_a, register_b, allow_offset: bool):
         result = []
-        target_a = _translate_register(target_a)
-        target_b = _translate_register(target_b)
-        named_group_target_a = f"(?P<src>{target_a})"
-        named_group_target_b = f"(?P<dst>{target_b})"
+        register_a = _translate_register(register_a)
+        register_b = _translate_register(register_b)
+        named_group_register_a = f"(?P<src>{register_a})"
+        named_group_register_b = f"(?P<dst>{register_b})"
 
         named_group_offset = None
         if allow_offset:
@@ -150,14 +150,14 @@ class LoadStoreGadget(Gadget):
             named_group_offset = ""
 
         for pattern in patterns:
-            updated_pattern = pattern.format(src=named_group_target_a, dst=named_group_target_b, offset=named_group_offset)
+            updated_pattern = pattern.format(src=named_group_register_a, dst=named_group_register_b, offset=named_group_offset)
             result.append(updated_pattern)
         return result
 
     @classmethod
-    def from_string(cls, s, target_a, target_b, allow_offset=False, allow_dirty=False, **kwargs):
+    def from_string(cls, s, register_a, register_b, allow_offset=False, allow_dirty=False, **kwargs):
         patterns = cls._get_patterns(allow_dirty)
-        updated_patterns = cls._insert_targets_and_offset(patterns, target_a, target_b, allow_offset)
+        updated_patterns = cls._insert_registers_and_offset(patterns, register_a, register_b, allow_offset)
         match = _match_patterns(updated_patterns, s)
         return cls._from_match(s, match)
 
@@ -200,7 +200,7 @@ class BreakpointGadget(Gadget):
         return result
 
 
-class MoveGadget(TwoTargetGadget):
+class MoveGadget(TwoRegisterGadget):
     @classmethod
     def _get_patterns(cls, allow_dirty):
         result = None
@@ -222,7 +222,7 @@ class MoveGadget(TwoTargetGadget):
         return result
 
 
-class ExchangeRegisterGadget(TwoTargetGadget):
+class ExchangeRegisterGadget(TwoRegisterGadget):
     @classmethod
     def _get_patterns(cls, allow_dirty):
         result = None
@@ -242,7 +242,7 @@ class ExchangeRegisterGadget(TwoTargetGadget):
         return result
 
 
-class SetRegisterGadget(SingleTargetGadget):
+class SetRegisterGadget(SingleRegisterGadget):
     @classmethod
     def _get_patterns(cls, allow_dirty):
         result = None
@@ -250,17 +250,17 @@ class SetRegisterGadget(SingleTargetGadget):
         clean = not allow_dirty
         if clean:
             result = (
-                ": pop ({target}) ; ret",
+                ": pop ({register}) ; ret",
             )
         else:
             result = (
-                ": pop ({target}) ;.* ret",
+                ": pop ({register}) ;.* ret",
             )
         
         return result
 
 
-class SetRegisterZeroGadget(SingleTargetGadget):
+class SetRegisterZeroGadget(SingleRegisterGadget):
     @classmethod
     def _get_patterns(cls, allow_dirty):
         result = None
@@ -268,17 +268,17 @@ class SetRegisterZeroGadget(SingleTargetGadget):
         clean = not allow_dirty
         if clean:
             result = (
-                ": xor ({target}), \\1 ; ret",
+                ": xor ({register}), \\1 ; ret",
             )
         else:
             result = (
-                ": xor ({target}), \\1 ;.* ret",
+                ": xor ({register}), \\1 ;.* ret",
             )
         
         return result
 
 
-class SubtractGadget(TwoTargetGadget):
+class SubtractGadget(TwoRegisterGadget):
     @classmethod
     def _get_patterns(cls, allow_dirty):
         result = None
@@ -296,7 +296,7 @@ class SubtractGadget(TwoTargetGadget):
         return result
 
 
-class AdditionGadget(TwoTargetGadget):
+class AdditionGadget(TwoRegisterGadget):
     @classmethod
     def _get_patterns(cls, allow_dirty):
         result = None
@@ -314,7 +314,7 @@ class AdditionGadget(TwoTargetGadget):
         return result
 
 
-class NegateRegisterGadget(SingleTargetGadget):
+class NegateRegisterGadget(SingleRegisterGadget):
     @classmethod
     def _get_patterns(cls, allow_dirty):
         result = None
@@ -322,17 +322,17 @@ class NegateRegisterGadget(SingleTargetGadget):
         clean = not allow_dirty
         if clean:
             result = (
-                ": neg {target} ; ret",
+                ": neg {register} ; ret",
             )
         else:
             result = (
-                ": neg {target} ;.* ret",
+                ": neg {register} ;.* ret",
             )
     
         return result
 
 
-class IncrementRegisterGadget(SingleTargetGadget):
+class IncrementRegisterGadget(SingleRegisterGadget):
     @classmethod
     def _get_patterns(cls, allow_dirty):
         result = None
@@ -340,11 +340,11 @@ class IncrementRegisterGadget(SingleTargetGadget):
         clean = not allow_dirty
         if clean:
             result = (
-                ": inc {target} ; ret",
+                ": inc {register} ; ret",
             )
         else:
             result = (
-                ": inc {target} ;.* ret",
+                ": inc {register} ;.* ret",
             )
         
         return result
