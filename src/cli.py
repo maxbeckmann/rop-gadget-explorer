@@ -1,6 +1,6 @@
 import typer
-from . import gadgets as g
-from .chains import *
+from rop_gadget_explorer import gadgets as g
+from rop_gadget_explorer.chains import *
 
 app = typer.Typer()
 
