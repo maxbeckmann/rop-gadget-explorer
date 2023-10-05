@@ -5,15 +5,8 @@ from rop_gadget_explorer.chains import *
 app = typer.Typer()
 
 def _print_result(res):
-    if res:
-        print(str("\n").join(map(str, res)))
-
-def _debug_print_result(res):
-    chain = next(res, None)
-    while(chain):
+    for chain in res:
         print(chain)
-        chain = next(res, None)
-
 
 def _iterate_file(family: g.Gadget, in_file, **kwargs):
     in_file.seek(0) # ensure we read from the start
