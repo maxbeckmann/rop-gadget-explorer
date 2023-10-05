@@ -214,7 +214,7 @@ class MoveGadget(TwoRegisterGadget):
         else:
             result = (
                 ": mov ({dst}), ({src}) ;.* ret",
-                ": push ({src}) ;(?:(?:?!pop [^\s]).)* pop ({dst}) ;.* ret",
+                ": push ({src}) ; .* pop ({dst}) ;.* ret",
                 ": xchg ({src}), ({dst}) ;.* ret",
                 ": xchg ({dst}), ({src}) ;.* ret"
             )

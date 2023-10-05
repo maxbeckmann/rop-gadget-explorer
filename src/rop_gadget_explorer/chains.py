@@ -98,6 +98,10 @@ class CompositeStrategy(Strategy):
                     yield result, nsc_args
 
     def _build(self, in_file, stack, **kwargs):
+        allow_dirty = kwargs.get("allow_dirty", False)
+        if allow_dirty:
+            return []
+        
         steps = reversed(self.construction)
         next_step = next(steps)
         chains = self._build_step(in_file, stack, next_step, steps, **kwargs)
