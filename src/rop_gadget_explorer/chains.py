@@ -118,6 +118,37 @@ class AggregateStrategy(Strategy):
             yield from results
 
 
+class IncrementChainFactory(AggregateStrategy):
+    @classmethod
+    def get_strategies(cls):
+        return (
+            SingletonStrategy(IncrementRegisterGadget),
+        )
+    
+
+class LoadChainFactory(AggregateStrategy):
+    @classmethod
+    def get_strategies(cls):
+        return (
+            SingletonStrategy(LoadGadget),
+        )
+
+
+class StoreChainFactory(AggregateStrategy):
+    @classmethod
+    def get_strategies(cls):
+        return (
+            SingletonStrategy(StoreGadget),
+        )
+
+
+class SetValueChainFactory(AggregateStrategy):
+    @classmethod
+    def get_strategies(cls):
+        return (
+            SingletonStrategy(SetRegisterGadget),
+        )
+
 
 class SetZeroChainFactory(AggregateStrategy):
     @classmethod
@@ -175,6 +206,13 @@ sub = SubtractionChainFactory()
 add = AdditionChainFactory()
 zero = SetZeroChainFactory()
 neg = NegateChainFactory()
+inc = IncrementChainFactory()
+load = LoadChainFactory()
+store = StoreChainFactory()
+setv = SetValueChainFactory()
+bkpt = SingletonStrategy(BreakpointGadget)
+pushd = SingletonStrategy(PushadGadget)
+ret = SingletonStrategy(NopGadget)
 
 neg_sub = CompositeStrategy(
                     (neg, {"register": "{register_a}"}),
