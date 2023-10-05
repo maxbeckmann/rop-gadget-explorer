@@ -83,20 +83,15 @@ class CompositeStrategy(Strategy):
         step, args = next_step
         updated_args = _update_args(args, kwargs)
         candidates = step.build(in_file, stack, **updated_args)
+        next_step = next(steps, None)
         for candidate in candidates:
-            print(candidate)
-            print(stack)
-            next_step = next(steps, None)
+            fixed_args = _fix_args(candidate, updated_args)
             if next_step:
-                fixed_args = _fix_args(candidate, updated_args)
                 next_step_candiates = self._build_step(in_file, stack, next_step, steps, **fixed_args)
                 for nsc in next_step_candiates:
                     result = nsc + [candidate]
                     yield result.copy()
             else:
-                print("reached leaf")
-                print()
-                print()
                 yield [candidate]
 
     def _build(self, in_file, stack, **kwargs):

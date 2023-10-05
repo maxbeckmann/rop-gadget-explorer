@@ -9,12 +9,9 @@ def _print_result(res):
         print(str("\n").join(map(str, res)))
 
 def _debug_print_result(res):
-    stack = []
     chain = next(res, None)
     while(chain):
-        print(chain.stack)
         print(chain)
-        print()
         chain = next(res, None)
 
 
