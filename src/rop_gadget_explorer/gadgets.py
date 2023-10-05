@@ -213,8 +213,9 @@ class MoveGadget(TwoRegisterGadget):
             )
         else:
             result = (
-                ": mov ({dst}), ({src}) ;.* ret",
-                ": push ({src}) ; .* pop ({dst}) ;.* ret",
+                ": mov ({dst}), ({src}) ;.+ ret",
+                ": push ({src}) ; .+ pop ({dst}) ;.* ret",
+                ": push ({src}) ; .* pop ({dst}) ;.+ ret",
                 ": xchg ({src}), ({dst}) ;.* ret",
                 ": xchg ({dst}), ({src}) ;.* ret"
             )
@@ -235,8 +236,8 @@ class ExchangeRegisterGadget(TwoRegisterGadget):
             )
         else:
             result = (
-                ": xchg {src}, {dst} ;.* ret",
-                ": xchg {dst}, {src} ;.* ret"
+                ": xchg {src}, {dst} ;.+ ret",
+                ": xchg {dst}, {src} ;.+ ret"
             )
         
         return result
@@ -254,7 +255,7 @@ class SetRegisterGadget(SingleRegisterGadget):
             )
         else:
             result = (
-                ": pop ({register}) ;.* ret",
+                ": pop ({register}) ;.+ ret",
             )
         
         return result
@@ -272,7 +273,7 @@ class SetRegisterZeroGadget(SingleRegisterGadget):
             )
         else:
             result = (
-                ": xor ({register}), \\1 ;.* ret",
+                ": xor ({register}), \\1 ;.+ ret",
             )
         
         return result
@@ -290,7 +291,7 @@ class SubtractGadget(TwoRegisterGadget):
             )
         else:
             result = (
-                ": sub {dst}, {src} ;.* ret",
+                ": sub {dst}, {src} ;.+ ret",
             )
         
         return result
@@ -308,7 +309,7 @@ class AdditionGadget(TwoRegisterGadget):
             )
         else:
             result = (
-                ": add {dst}, {src} ;.* ret",
+                ": add {dst}, {src} ;.+ ret",
             )
         
         return result
@@ -326,7 +327,7 @@ class NegateRegisterGadget(SingleRegisterGadget):
             )
         else:
             result = (
-                ": neg {register} ;.* ret",
+                ": neg {register} ;.+ ret",
             )
     
         return result
@@ -344,7 +345,7 @@ class IncrementRegisterGadget(SingleRegisterGadget):
             )
         else:
             result = (
-                ": inc {register} ;.* ret",
+                ": inc {register} ;.+ ret",
             )
         
         return result
@@ -362,7 +363,7 @@ class LoadGadget(LoadStoreGadget):
             )
         else:
             result = (
-                ": mov {dst},  \[{src}{offset}\] ;.* ret",
+                ": mov {dst},  \[{src}{offset}\] ;.+ ret",
             )
         
         return result
@@ -380,7 +381,7 @@ class StoreGadget(LoadStoreGadget):
             ]
         else:
             result = [
-                ": mov  \[{dst}{offset}\], {src} ;.* ret",
+                ": mov  \[{dst}{offset}\], {src} ;.+ ret",
             ]
         
         return result
@@ -397,7 +398,7 @@ class PushadGadget(Gadget):
             )
         else:
             result = (
-                ": pushad ; .* ret",
+                ": pushad ; .+ ret",
             )
     
         return result
