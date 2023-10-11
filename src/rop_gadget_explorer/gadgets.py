@@ -1,4 +1,6 @@
 import re
+from abc import abstractclassmethod
+
 
 registers = {
     "eax",
@@ -12,222 +14,406 @@ registers = {
     "r32",
 }
 
-def _check_register(r32):
+def _translate_register(r32):
     if r32 == "r32":
         r32 = "e.."
     else:
         assert r32 in registers
     return r32
 
-def search_gadget_family(family, in_file):
-    for pattern in family:
-        in_file.seek(0) # ensure we read from the start
-        for line in in_file:
-            res = re.search(pattern, line)
-            if res:
-                yield line.strip()
+def _match_patterns(patterns, s):
+    for pattern in patterns:
+        res = re.search(pattern, s)
+        if res:
+            return res
+    return None
 
-def bkpt(in_file, dirty: bool):
-    clean = not dirty
-    if clean:
-        family = (
-            f": int3 ; ret",
-        )
-    else:
-        family = (
-            f": int3 ; .* ret",
-        )
+class Gadget:
+    def __init__(self, string: str) -> None:
+        self.string = string.strip()
+        split = self.string.split(":")
+        self.address = int(split[0], base=16)
+        self.instructions = list(map(str.strip, (split[1].split(";"))[:-1]))
     
-    return search_gadget_family(family, in_file)
+    def __str__(self) -> str:
+        return f"({hex(self.address)}) # {' ; '.join(self.instructions)}"
+    
+    @abstractclassmethod
+    def _get_patterns(cls, allow_dirty):
+        raise NotImplementedError()
 
-def set(in_file, r32, dirty: bool):
-    r32 = _check_register(r32)
+    @classmethod
+    def from_string(cls, s, allow_dirty=False, **kwargs):
+        patterns = cls._get_patterns(allow_dirty)
+        match = _match_patterns(patterns, s)
+        return cls._from_match(s, match)
     
-    clean = not dirty
-    if clean:
-        family = (
-            f": pop {r32} ; ret",
-        )
-    else:
-        family = (
-            f": pop {r32} ;.* ret",
-        )
-    
-    return search_gadget_family(family, in_file)
+    @classmethod
+    def _from_match(cls, s, match):
+        result = None
+        if match:
+            result = cls(
+                s, 
+            )
+        return result
 
-def move(in_file, src, dst, dirty: bool):
-    src = _check_register(src)
-    dst = _check_register(dst)
-    
-    clean = not dirty
-    if clean:
-        family = (
-            f": mov {dst}, {src} ; ret",
-            f": push {src} ; pop {dst} ; ret",
-        )
-    else:
-        family = (
-            f": mov {dst}, {src} ;.* ret",
-            f": push {src} ;((?!pop [^\s]).)* pop {dst} ;.* ret",
-            f": xchg {src}, {dst} ;.* ret",
-            f": xchg {dst}, {src} ;.* ret"
-        )
-    
-    return search_gadget_family(family, in_file)
 
-def xchg(in_file, src, dst, dirty: bool):
-    src = _check_register(src)
-    dst = _check_register(dst)
-    
-    clean = not dirty
-    if clean:
-        family = (
-            f": xchg {src}, {dst} ; ret",
-            f": xchg {dst}, {src} ; ret",
-        )
-    else:
-        family = (
-            f": xchg {src}, {dst} ;.* ret",
-            f": xchg {dst}, {src} ;.* ret"
-        )
-    
-    return search_gadget_family(family, in_file)
+class SingleRegisterGadget(Gadget):
+    def __init__(self, string, register) -> None:
+        super().__init__(string)
+        self.register = register
 
-def zero(in_file, target, dirty: bool):
-    target = _check_register(target)
-    
-    clean = not dirty
-    if clean:
-        family = (
-            f": xor ({target}), \\1 ; ret",
-        )
-    else:
-        family = (
-            f": xor ({target}), \\1 ;.* ret",
-        )
-    
-    return search_gadget_family(family, in_file)
+    @classmethod
+    def _insert_register(cls, patterns, register):
+        result = []
+        register = _translate_register(register)
+        named_group_register = f"(?P<register>{register})"
+        for pattern in patterns:
+            updated_pattern = pattern.format(register=named_group_register)
+            result.append(updated_pattern)
+        return result
 
-def sub(in_file, src, dst, dirty: bool):
-    src = _check_register(src)
-    dst = _check_register(dst)
-    
-    clean = not dirty
-    if clean:
-        family = (
-            f": sub {dst}, {src} ; ret",
-        )
-    else:
-        family = (
-            f": sub {dst}, {src} ;.* ret",
-        )
-    
-    return search_gadget_family(family, in_file)
+    @classmethod
+    def from_string(cls, s, register, allow_dirty=False, **kwargs):
+        patterns = cls._get_patterns(allow_dirty)
+        updated_patterns = cls._insert_register(patterns, register)
+        match = _match_patterns(updated_patterns, s)
+        return cls._from_match(s, match)
 
-def add(in_file, src, dst, dirty: bool):
-    src = _check_register(src)
-    dst = _check_register(dst)
-    
-    clean = not dirty
-    if clean:
-        family = (
-            f": add {dst}, {src} ; ret",
-        )
-    else:
-        family = (
-            f": add {dst}, {src} ;.* ret",
-        )
-    
-    return search_gadget_family(family, in_file)
+    @classmethod
+    def _from_match(cls, s, match):
+        result = None
+        if match:
+            result = cls(
+                s, 
+                match.group("register"),
+            )
+        return result
 
-def neg(in_file, dst, dirty: bool):
-    dst = _check_register(dst)
-    
-    clean = not dirty
-    if clean:
-        family = (
-            f": neg {dst} ; ret",
-        )
-    else:
-        family = (
-            f": neg {dst} ;.* ret",
-        )
-    
-    return search_gadget_family(family, in_file)
 
-def inc(in_file, dst, dirty: bool):
-    dst = _check_register(dst)
+class TwoRegisterGadget(Gadget):
+    def __init__(self, string, register_a, register_b) -> None:
+        super().__init__(string)
+        self.register_a = register_a
+        self.register_b = register_b
     
-    clean = not dirty
-    if clean:
-        family = (
-            f": inc {dst} ; ret",
-        )
-    else:
-        family = (
-            f": inc {dst} ;.* ret",
-        )
-    
-    return search_gadget_family(family, in_file)
+    @classmethod
+    def _insert_registers(cls, patterns, register_a, register_b):
+        result = []
+        register_a = _translate_register(register_a)
+        register_b = _translate_register(register_b)
+        named_group_register_a = f"(?P<src>{register_a})"
+        named_group_register_b = f"(?P<dst>{register_b})"
+        for pattern in patterns:
+            updated_pattern = pattern.format(src=named_group_register_a, dst=named_group_register_b)
+            result.append(updated_pattern)
+        return result
 
-def load(in_file, r32, ptr, dirty: bool):
-    ptr = _check_register(ptr)
-    r32 = _check_register(r32)
-    
-    clean = not dirty
-    if clean:
-        family = (
-            f": mov {r32},  \[{ptr}\] ; ret",
-        )
-    else:
-        family = (
-            f": mov {r32},  \[{ptr}\] ;.* ret",
-        )
-    
-    return search_gadget_family(family, in_file)
+    @classmethod
+    def from_string(cls, s, register_a, register_b, allow_dirty=False, **kwargs):
+        patterns = cls._get_patterns(allow_dirty)
+        updated_patterns = cls._insert_registers(patterns, register_a, register_b)
+        match = _match_patterns(updated_patterns, s)
+        return cls._from_match(s, match)
 
-def store(in_file, r32, ptr, offset: bool, dirty: bool):
-    ptr = _check_register(ptr)
-    r32 = _check_register(r32)
-    
-    clean = not dirty
-    if clean:
-        family = [
-            f": mov  \[{ptr}\], {r32} ; ret",
-        ]
-        if offset:
-            family += [f": mov  \[{ptr}+[\w]*\], {r32} ; ret"]
-    else:
-        family = [
-            f": mov  \[{ptr}\], {r32} ;.* ret",
-        ]
-        if offset:
-            family += [f": mov  \[{ptr}+[\w]*\], {r32} ;.* ret",]
-    
-    return search_gadget_family(family, in_file)
+    @classmethod
+    def _from_match(cls, s, match):
+        result = None
+        if match:
+            result = cls(
+                s, 
+                match.group('src'),
+                match.group('dst'),
+            )
+        return result
 
-def pushad(in_file, dirty: bool):
-    clean = not dirty
-    if clean:
-        family = (
-            ": pushad ; ret",
-        )
-    else:
-        family = (
-            ": pushad ; .* ret",
-        )
-    
-    return search_gadget_family(family, in_file)
 
-def ret(in_file, dirty: bool):
-    clean = not dirty
-    if clean:
-        family = (
-            ": ret ;",
-        )
-    else:
-        family = (
-            ": ret",
-        )
+class LoadStoreGadget(Gadget):
+    def __init__(self, string, register_ptr, register_value, offset) -> None:
+        super().__init__(string)
+        self.register_a = register_ptr
+        self.register_b = register_value
+        self.offset = offset
     
-    return search_gadget_family(family, in_file)
+    @classmethod
+    def _insert_registers_and_offset(cls, patterns, register_a, register_b, allow_offset: bool):
+        result = []
+        register_a = _translate_register(register_a)
+        register_b = _translate_register(register_b)
+        named_group_register_a = f"(?P<src>{register_a})"
+        named_group_register_b = f"(?P<dst>{register_b})"
+
+        named_group_offset = None
+        if allow_offset:
+            named_group_offset = "(?P<ost>[\+\-]0x\w+)?"
+        else:
+            named_group_offset = ""
+
+        for pattern in patterns:
+            updated_pattern = pattern.format(src=named_group_register_a, dst=named_group_register_b, offset=named_group_offset)
+            result.append(updated_pattern)
+        return result
+
+    @classmethod
+    def from_string(cls, s, register_a, register_b, allow_offset=False, allow_dirty=False, **kwargs):
+        patterns = cls._get_patterns(allow_dirty)
+        updated_patterns = cls._insert_registers_and_offset(patterns, register_a, register_b, allow_offset)
+        match = _match_patterns(updated_patterns, s)
+        return cls._from_match(s, match)
+
+    @classmethod
+    def _from_match(cls, s, match):
+        result = None
+
+        if match:
+            offset = None
+            try:
+                offset_str = match.group('ost')
+                if offset_str:
+                    offset = int(offset_str, base=16)
+            except IndexError:
+                offset = 0
+
+            result = cls(
+                s, 
+                match.group('src'),
+                match.group('dst'),
+                offset,
+            )
+        return result
+
+
+class BreakpointGadget(Gadget):
+    @classmethod
+    def _get_patterns(cls, allow_dirty):
+        result = None
+        clean = not allow_dirty
+        if clean:
+            result = (
+                f": int3 ; ret",
+            )
+        else:
+            result = (
+                f": int3 ; .* ret",
+            )
+        
+        return result
+
+
+class MoveGadget(TwoRegisterGadget):
+    @classmethod
+    def _get_patterns(cls, allow_dirty):
+        result = None
+
+        clean = not allow_dirty
+        if clean:
+            result = (
+                ": mov ({dst}), ({src}) ; ret",
+                ": push ({src}) ; pop ({dst}) ; ret",
+            )
+        else:
+            result = (
+                ": mov ({dst}), ({src}) ;.+ ret",
+                ": push ({src}) ; .+ pop ({dst}) ;.* ret",
+                ": push ({src}) ; .* pop ({dst}) ;.+ ret",
+                ": xchg ({src}), ({dst}) ;.* ret",
+                ": xchg ({dst}), ({src}) ;.* ret"
+            )
+        
+        return result
+
+
+class ExchangeRegisterGadget(TwoRegisterGadget):
+    @classmethod
+    def _get_patterns(cls, allow_dirty):
+        result = None
+
+        clean = not allow_dirty
+        if clean:
+            result = (
+                ": xchg {src}, {dst} ; ret",
+                ": xchg {dst}, {src} ; ret",
+            )
+        else:
+            result = (
+                ": xchg {src}, {dst} ;.+ ret",
+                ": xchg {dst}, {src} ;.+ ret"
+            )
+        
+        return result
+
+
+class SetRegisterGadget(SingleRegisterGadget):
+    @classmethod
+    def _get_patterns(cls, allow_dirty):
+        result = None
+    
+        clean = not allow_dirty
+        if clean:
+            result = (
+                ": pop ({register}) ; ret",
+            )
+        else:
+            result = (
+                ": pop ({register}) ;.+ ret",
+            )
+        
+        return result
+
+
+class SetRegisterZeroGadget(SingleRegisterGadget):
+    @classmethod
+    def _get_patterns(cls, allow_dirty):
+        result = None
+    
+        clean = not allow_dirty
+        if clean:
+            result = (
+                ": xor ({register}), \\1 ; ret",
+            )
+        else:
+            result = (
+                ": xor ({register}), \\1 ;.+ ret",
+            )
+        
+        return result
+
+
+class SubtractGadget(TwoRegisterGadget):
+    @classmethod
+    def _get_patterns(cls, allow_dirty):
+        result = None
+
+        clean = not allow_dirty
+        if clean:
+            result = (
+                ": sub {dst}, {src} ; ret",
+            )
+        else:
+            result = (
+                ": sub {dst}, {src} ;.+ ret",
+            )
+        
+        return result
+
+
+class AdditionGadget(TwoRegisterGadget):
+    @classmethod
+    def _get_patterns(cls, allow_dirty):
+        result = None
+
+        clean = not allow_dirty
+        if clean:
+            result = (
+                ": add {dst}, {src} ; ret",
+            )
+        else:
+            result = (
+                ": add {dst}, {src} ;.+ ret",
+            )
+        
+        return result
+
+
+class NegateRegisterGadget(SingleRegisterGadget):
+    @classmethod
+    def _get_patterns(cls, allow_dirty):
+        result = None
+        
+        clean = not allow_dirty
+        if clean:
+            result = (
+                ": neg {register} ; ret",
+            )
+        else:
+            result = (
+                ": neg {register} ;.+ ret",
+            )
+    
+        return result
+
+
+class IncrementRegisterGadget(SingleRegisterGadget):
+    @classmethod
+    def _get_patterns(cls, allow_dirty):
+        result = None
+    
+        clean = not allow_dirty
+        if clean:
+            result = (
+                ": inc {register} ; ret",
+            )
+        else:
+            result = (
+                ": inc {register} ;.+ ret",
+            )
+        
+        return result
+
+
+class LoadGadget(LoadStoreGadget):
+    @classmethod
+    def _get_patterns(cls, allow_dirty):
+        result = None
+
+        clean = not allow_dirty    
+        if clean:
+            result = (
+                ": mov {dst},  \[{src}{offset}\] ; ret",
+            )
+        else:
+            result = (
+                ": mov {dst},  \[{src}{offset}\] ;.+ ret",
+            )
+        
+        return result
+
+
+class StoreGadget(LoadStoreGadget):
+    @classmethod
+    def _get_patterns(cls, allow_dirty):
+        result = None
+    
+        clean = not allow_dirty
+        if clean:
+            result = [
+                ": mov  \[{dst}{offset}\], {src} ; ret",
+            ]
+        else:
+            result = [
+                ": mov  \[{dst}{offset}\], {src} ;.+ ret",
+            ]
+        
+        return result
+
+
+class PushadGadget(Gadget):
+    @classmethod
+    def _get_patterns(cls, allow_dirty):
+        result = None
+        clean = not allow_dirty
+        if clean:
+            result = (
+                ": pushad ; ret",
+            )
+        else:
+            result = (
+                ": pushad ; .+ ret",
+            )
+    
+        return result
+
+
+class NopGadget(Gadget):
+    @classmethod
+    def _get_patterns(cls, allow_dirty):
+        result = None
+        clean = not allow_dirty
+        if clean:
+            result = (
+                ": ret ;",
+            )
+        else:
+            raise NotImplementedError()
+        
+        return result
